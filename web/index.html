@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Crop to 16:9</title>
+<title>Crop Image</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 tailwind.config = {
@@ -62,8 +62,38 @@ tailwind.config = {
   }
 
   .rule-line { position: absolute; pointer-events: none; }
-  .rule-v { width: 1px; background: rgba(255,255,255,0.12); top: 0; bottom: 0; left: 33.33%; }
+  .rule-v { width: 1px; background: rgba(255,255,255,0.12); top: 0; bottom: 0; }
   .rule-h { height: 1px; background: rgba(255,255,255,0.12); left: 0; right: 0; }
+
+  /* Ratio buttons */
+  .ratio-btn {
+    display: flex; align-items: center; gap: 6px;
+    width: 100%; padding: 8px 12px; border-radius: 8px;
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+    color: #a1a1aa; border: 1px solid transparent; background: transparent;
+    text-align: left;
+  }
+  .ratio-btn:hover { color: #e4e4e7; background: rgba(255,255,255,0.04); }
+  .ratio-btn.active { color: white; background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.4); }
+
+  .ratio-icon {
+    width: 28px; height: 20px; border-radius: 3px; flex-shrink: 0;
+    border: 1.5px solid currentColor; position: relative; opacity: 0.6;
+  }
+  .ratio-btn.active .ratio-icon { opacity: 1; border-color: #60a5fa; }
+
+  .custom-input {
+    width: 100%; padding: 6px 8px; border-radius: 6px; font-size: 12px;
+    background: transparent; border: 1px solid #3a3a3a; color: #a1a1aa;
+    text-align: center; font-family: inherit; outline: none; transition: border-color 0.15s;
+  }
+  .custom-input:focus { border-color: #60a5fa; color: white; }
+  .custom-input::placeholder { color: #52525b; }
+
+  /* Remove number input spinners */
+  .custom-input::-webkit-outer-spin-button,
+  .custom-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .custom-input[type=number] { -moz-appearance: textfield; }
 </style>
 </head>
 <body class="bg-surface text-white min-h-screen font-sans">
@@ -72,9 +102,9 @@ tailwind.config = {
   <div class="flex items-center gap-3">
     <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.5"/>
-      <rect x="4" y="5" width="16" height="9" rx="1" stroke-width="1.2" stroke="white" opacity="0.6"/>
+      <rect x="4" y="5" width="16" height="9" rx="1" stroke-width="1.2" stroke="white" opacity="0.5"/>
     </svg>
-    <h1 class="text-lg font-semibold tracking-tight">Crop to <span class="text-blue-400">16:9</span></h1>
+    <h1 class="text-lg font-semibold tracking-tight">Crop Image</h1>
   </div>
   <button onclick="toggleDark()" class="p-2 rounded-lg hover:bg-surface-3 transition-colors" title="Toggle dark mode">
     <svg id="sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -86,7 +116,7 @@ tailwind.config = {
   </button>
 </header>
 
-<main class="max-w-4xl mx-auto px-4 py-8 space-y-6">
+<main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
   <!-- Upload -->
   <div id="dropZone"
@@ -104,76 +134,118 @@ tailwind.config = {
   <!-- Main content -->
   <div id="workspace" class="hidden space-y-6">
 
-    <!-- Previews -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Original -->
-      <div class="rounded-xl border border-border overflow-hidden bg-surface-2">
-        <div class="px-4 py-2.5 border-b border-border flex items-center justify-between">
-          <span class="text-xs font-medium text-zinc-400">Original — drag to select</span>
-          <span id="origSize" class="text-xs text-zinc-600"></span>
-        </div>
-        <div id="origContainer" class="relative flex items-center justify-center bg-[#0a0a0a] p-6" style="min-height:300px">
-          <div class="img-wrapper" id="imgWrapper">
-            <img id="origImg" class="max-h-[50vh] max-w-full" alt="Original" draggable="false">
-            <div id="cropBox" class="crop-box hidden">
-              <div class="handle nw"><div class="handle-dot"></div></div>
-              <div class="handle ne"><div class="handle-dot"></div></div>
-              <div class="handle sw"><div class="handle-dot"></div></div>
-              <div class="handle se"><div class="handle-dot"></div></div>
-              <div class="handle n"><div class="handle-dot"></div></div>
-              <div class="handle s"><div class="handle-dot"></div></div>
-              <div class="handle w"><div class="handle-dot"></div></div>
-              <div class="handle e"><div class="handle-dot"></div></div>
-              <!-- Rule of thirds -->
-              <div class="rule-line rule-v" style="left:33.33%"></div>
-              <div class="rule-line rule-v" style="left:66.66%"></div>
-              <div class="rule-line rule-h" style="top:33.33%"></div>
-              <div class="rule-line rule-h" style="top:66.66%"></div>
-            </div>
+    <div class="flex gap-4 flex-col md:flex-row">
+      <!-- Ratio sidebar -->
+      <div class="flex-shrink-0 md:w-44 space-y-1">
+        <div class="text-xs font-medium text-zinc-500 mb-3 px-2">Aspect Ratio</div>
+
+        <button class="ratio-btn active" data-ratio="16:9" onclick="setRatio(16, 9, this)">
+          <span class="ratio-icon" style="width:28px;height:15.75px"></span> 16:9
+        </button>
+        <button class="ratio-btn" data-ratio="4:3" onclick="setRatio(4, 3, this)">
+          <span class="ratio-icon" style="width:24px;height:18px"></span> 4:3
+        </button>
+        <button class="ratio-btn" data-ratio="1:1" onclick="setRatio(1, 1, this)">
+          <span class="ratio-icon" style="width:18px;height:18px"></span> 1:1
+        </button>
+        <button class="ratio-btn" data-ratio="3:2" onclick="setRatio(3, 2, this)">
+          <span class="ratio-icon" style="width:24px;height:16px"></span> 3:2
+        </button>
+        <button class="ratio-btn" data-ratio="21:9" onclick="setRatio(21, 9, this)">
+          <span class="ratio-icon" style="width:28px;height:12px"></span> 21:9
+        </button>
+        <button class="ratio-btn" data-ratio="9:16" onclick="setRatio(9, 16, this)">
+          <span class="ratio-icon" style="width:15.75px;height:28px"></span> 9:16
+        </button>
+
+        <div class="pt-3 mt-3 border-t border-border">
+          <div class="text-xs font-medium text-zinc-500 mb-2 px-2">Custom</div>
+          <div class="flex items-center gap-1.5 px-2">
+            <input type="number" id="customW" class="custom-input" placeholder="W" min="1" value="">
+            <span class="text-zinc-600 text-xs">:</span>
+            <input type="number" id="customH" class="custom-input" placeholder="H" min="1" value="">
+            <button onclick="applyCustom()"
+                    class="flex-shrink-0 px-2.5 py-1.5 text-xs rounded-md bg-surface-3 hover:bg-zinc-700
+                           text-zinc-400 hover:text-white transition-colors border border-border">
+              Set
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Preview -->
-      <div class="rounded-xl border border-border overflow-hidden bg-surface-2">
-        <div class="px-4 py-2.5 border-b border-border flex items-center justify-between">
-          <span class="text-xs font-medium text-zinc-400">Preview (16:9)</span>
-          <span id="previewSize" class="text-xs text-zinc-600"></span>
+      <!-- Panels -->
+      <div class="flex-1 min-w-0 space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Original -->
+          <div class="rounded-xl border border-border overflow-hidden bg-surface-2">
+            <div class="px-4 py-2.5 border-b border-border flex items-center justify-between">
+              <span class="text-xs font-medium text-zinc-400">Original — drag to select</span>
+              <span id="origSize" class="text-xs text-zinc-600"></span>
+            </div>
+            <div id="origContainer" class="relative flex items-center justify-center bg-[#0a0a0a] p-6" style="min-height:300px">
+              <div class="img-wrapper" id="imgWrapper">
+                <img id="origImg" class="max-h-[50vh] max-w-full" alt="Original" draggable="false">
+                <div id="cropBox" class="crop-box hidden">
+                  <div class="handle nw"><div class="handle-dot"></div></div>
+                  <div class="handle ne"><div class="handle-dot"></div></div>
+                  <div class="handle sw"><div class="handle-dot"></div></div>
+                  <div class="handle se"><div class="handle-dot"></div></div>
+                  <div class="handle n"><div class="handle-dot"></div></div>
+                  <div class="handle s"><div class="handle-dot"></div></div>
+                  <div class="handle w"><div class="handle-dot"></div></div>
+                  <div class="handle e"><div class="handle-dot"></div></div>
+                  <div class="rule-line rule-v" style="left:33.33%"></div>
+                  <div class="rule-line rule-v" style="left:66.66%"></div>
+                  <div class="rule-line rule-h" style="top:33.33%"></div>
+                  <div class="rule-line rule-h" style="top:66.66%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview -->
+          <div class="rounded-xl border border-border overflow-hidden bg-surface-2">
+            <div class="px-4 py-2.5 border-b border-border flex items-center justify-between">
+              <span class="text-xs font-medium text-zinc-400" id="previewLabel">Preview (16:9)</span>
+              <span id="previewSize" class="text-xs text-zinc-600"></span>
+            </div>
+            <div class="flex items-center justify-center bg-[#0a0a0a] p-4" style="min-height:300px">
+              <canvas id="previewCanvas" class="max-h-[400px] max-w-full rounded-lg shadow-lg"></canvas>
+            </div>
+          </div>
         </div>
-        <div class="flex items-center justify-center bg-[#0a0a0a] p-4" style="min-height:300px">
-          <canvas id="previewCanvas" class="max-h-[400px] max-w-full rounded-lg shadow-lg"></canvas>
+
+        <!-- Controls -->
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3 text-sm text-zinc-500">
+            <span class="inline-flex items-center gap-1">
+              <span class="w-3 h-3 rounded bg-white/10 inline-flex items-center justify-center text-[10px]">▣</span> drag to move
+            </span>
+            <span class="inline-flex items-center gap-1">
+              <span class="w-3 h-3 rounded-full bg-white border border-white/30"></span> drag corner to resize
+            </span>
+          </div>
+
+          <button onclick="download()"
+                  class="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium
+                         transition-all inline-flex items-center gap-2 shadow-lg shadow-blue-600/20">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            Download
+          </button>
         </div>
       </div>
-    </div>
-
-    <!-- Controls -->
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-3 text-sm text-zinc-500">
-        <span class="inline-flex items-center gap-1">
-          <span class="w-3 h-3 rounded bg-white/10 inline-flex items-center justify-center text-[10px]">▣</span> drag to move
-        </span>
-        <span class="inline-flex items-center gap-1">
-          <span class="w-3 h-3 rounded-full bg-white border border-white/30"></span> drag corner to resize
-        </span>
-      </div>
-
-      <button onclick="download()"
-              class="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium
-                     transition-all inline-flex items-center gap-2 shadow-lg shadow-blue-600/20">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-        </svg>
-        Download
-      </button>
     </div>
   </div>
 </main>
 
 <script>
-const TARGET = 16 / 9;
+let targetRatio = 16 / 9;
+let currentRatioW = 16, currentRatioH = 9;
 let currentImage = null;
 let currentFormat = 'image/jpeg';
-let crop = { x: 0, y: 0, w: 0, h: 0 }; // in image pixels
+let crop = { x: 0, y: 0, w: 0, h: 0 };
 
 const DROP = document.getElementById('dropZone');
 const WS = document.getElementById('workspace');
@@ -203,22 +275,47 @@ function handleFile(file) {
   reader.readAsDataURL(file);
 }
 
+// --- Ratio switching ---
+function setRatio(w, h, btn) {
+  currentRatioW = w; currentRatioH = h;
+  targetRatio = w / h;
+  document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('customW').value = '';
+  document.getElementById('customH').value = '';
+  document.getElementById('previewLabel').textContent = `Preview (${w}:${h})`;
+  if (currentImage) { initCrop(); positionBox(); updatePreview(); }
+}
+
+function applyCustom() {
+  const w = parseInt(document.getElementById('customW').value);
+  const h = parseInt(document.getElementById('customH').value);
+  if (!w || !h || w < 1 || h < 1) return;
+  currentRatioW = w; currentRatioH = h;
+  targetRatio = w / h;
+  document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('previewLabel').textContent = `Preview (${w}:${h})`;
+  if (currentImage) { initCrop(); positionBox(); updatePreview(); }
+}
+
+// Allow Enter key in custom inputs
+document.getElementById('customW').addEventListener('keydown', e => { if (e.key === 'Enter') applyCustom(); });
+document.getElementById('customH').addEventListener('keydown', e => { if (e.key === 'Enter') applyCustom(); });
+
 // --- Crop box ---
 function initCrop() {
   const iw = currentImage.naturalWidth;
   const ih = currentImage.naturalHeight;
-  const ratio = iw / ih;
+  const imgRatio = iw / ih;
 
-  if (ratio > TARGET) {
-    // image wider → crop width
+  if (imgRatio > targetRatio) {
     crop.h = ih;
-    crop.w = Math.round(ih * TARGET);
+    crop.w = Math.round(ih * targetRatio);
     crop.y = 0;
     crop.x = Math.round((iw - crop.w) / 2);
   } else {
-    // image taller → crop height
     crop.w = iw;
-    crop.h = Math.round(iw / TARGET);
+    crop.h = Math.round(iw / targetRatio);
     crop.x = 0;
     crop.y = Math.round((ih - crop.h) / 2);
   }
@@ -241,16 +338,8 @@ function render() {
   IMG.src = currentImage.src;
   document.getElementById('origSize').textContent = `${iw} × ${ih}`;
 
-  IMG.onload = () => {
-    positionBox();
-    updatePreview();
-  };
-
-  // If image already loaded (from cache), fire immediately
-  if (IMG.complete && IMG.naturalWidth > 0) {
-    positionBox();
-    updatePreview();
-  }
+  IMG.onload = () => { positionBox(); updatePreview(); };
+  if (IMG.complete && IMG.naturalWidth > 0) { positionBox(); updatePreview(); }
 }
 
 function positionBox() {
@@ -280,7 +369,7 @@ function updatePreview() {
 }
 
 // --- Mouse interaction ---
-let dragging = null; // 'move' | 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'w' | 'e'
+let dragging = null;
 let dragStart = { mx: 0, my: 0, cx: 0, cy: 0, cw: 0, ch: 0 };
 
 function imgScale() {
@@ -293,10 +382,7 @@ function imgScale() {
 function mouseToImage(mx, my) {
   const rect = IMG.getBoundingClientRect();
   const { sx, sy } = imgScale();
-  return {
-    ix: (mx - rect.left) / sx,
-    iy: (my - rect.top) / sy,
-  };
+  return { ix: (mx - rect.left) / sx, iy: (my - rect.top) / sy };
 }
 
 WRAPPER.addEventListener('mousedown', e => {
@@ -307,18 +393,12 @@ WRAPPER.addEventListener('mousedown', e => {
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
 
-  // Check if clicking on a handle
   const handle = e.target.closest('.handle');
   if (handle && CROP_BOX.style.display !== 'none') {
     const cls = Array.from(handle.classList).find(c => ['nw','ne','sw','se','n','s','w','e'].includes(c));
-    if (cls) {
-      dragging = cls;
-      dragStart = { mx, my, cx: crop.x, cy: crop.y, cw: crop.w, ch: crop.h };
-      return;
-    }
+    if (cls) { dragging = cls; dragStart = { mx, my, cx: crop.x, cy: crop.y, cw: crop.w, ch: crop.h }; return; }
   }
 
-  // Check if clicking inside the crop box → move
   const { sx, sy } = imgScale();
   const bx = crop.x * sx, by = crop.y * sy, bw = crop.w * sx, bh = crop.h * sy;
   if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
@@ -327,17 +407,15 @@ WRAPPER.addEventListener('mousedown', e => {
     return;
   }
 
-  // Click outside → start new selection
   const { ix, iy } = mouseToImage(e.clientX, e.clientY);
   const iw = currentImage.naturalWidth;
   const ih = currentImage.naturalHeight;
-  const ratio = iw / ih;
 
   let nw, nh;
-  if (ratio > TARGET) {
-    nh = ih; nw = Math.round(nh * TARGET);
+  if (iw / ih > targetRatio) {
+    nh = ih; nw = Math.round(nh * targetRatio);
   } else {
-    nw = iw; nh = Math.round(nw / TARGET);
+    nw = iw; nh = Math.round(nw / targetRatio);
   }
   crop.w = Math.min(nw, iw);
   crop.h = Math.min(nh, ih);
@@ -354,8 +432,8 @@ window.addEventListener('mousemove', e => {
   const rect = IMG.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
-  const dx = (mx - dragStart.mx);
-  const dy = (my - dragStart.my);
+  const dx = mx - dragStart.mx;
+  const dy = my - dragStart.my;
   const { sx, sy } = imgScale();
   const dxi = dx / sx;
   const dyi = dy / sy;
@@ -367,57 +445,55 @@ window.addEventListener('mousemove', e => {
     crop.y = Math.round(dragStart.cy + dyi);
     clampCrop();
   } else {
-    // Resize — keep opposite corner fixed, maintain 16:9
-    const minW = 80, minH = 45;
+    const minW = 40, minH = Math.round(40 / targetRatio);
 
     let nx = dragStart.cx, ny = dragStart.cy, nw = dragStart.cw, nh = dragStart.ch;
 
     if (dragging === 'se') {
       nw = Math.max(minW, dragStart.cw + dxi);
-      nh = Math.round(nw / TARGET);
-      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * TARGET); }
-      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / TARGET); }
+      nh = Math.round(nw / targetRatio);
+      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * targetRatio); }
+      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / targetRatio); }
     } else if (dragging === 'sw') {
       nw = Math.max(minW, dragStart.cw - dxi);
-      nh = Math.round(nw / TARGET);
+      nh = Math.round(nw / targetRatio);
       nx = dragStart.cx + dragStart.cw - nw;
-      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * TARGET); nx = dragStart.cx + dragStart.cw - nw; }
-      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / TARGET); }
+      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * targetRatio); nx = dragStart.cx + dragStart.cw - nw; }
+      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / targetRatio); }
     } else if (dragging === 'ne') {
       nh = Math.max(minH, dragStart.ch - dyi);
-      nw = Math.round(nh * TARGET);
+      nw = Math.round(nh * targetRatio);
       ny = dragStart.cy + dragStart.ch - nh;
-      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / TARGET); ny = dragStart.cy + dragStart.ch - nh; }
-      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * TARGET); }
+      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / targetRatio); ny = dragStart.cy + dragStart.ch - nh; }
+      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * targetRatio); }
     } else if (dragging === 'nw') {
       nw = Math.max(minW, dragStart.cw - dxi);
-      nh = Math.round(nw / TARGET);
+      nh = Math.round(nw / targetRatio);
       nx = dragStart.cx + dragStart.cw - nw;
       ny = dragStart.cy + dragStart.ch - nh;
-      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / TARGET); }
-      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * TARGET); }
+      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / targetRatio); }
+      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * targetRatio); }
     } else if (dragging === 'e') {
       nw = Math.max(minW, dragStart.cw + dxi);
-      nh = Math.round(nw / TARGET);
-      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / TARGET); }
-      // recenter vertically
+      nh = Math.round(nw / targetRatio);
+      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / targetRatio); }
       ny = dragStart.cy + Math.round((dragStart.ch - nh) / 2);
     } else if (dragging === 'w') {
       nw = Math.max(minW, dragStart.cw - dxi);
-      nh = Math.round(nw / TARGET);
+      nh = Math.round(nw / targetRatio);
       nx = dragStart.cx + dragStart.cw - nw;
-      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / TARGET); }
+      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / targetRatio); }
       ny = dragStart.cy + Math.round((dragStart.ch - nh) / 2);
     } else if (dragging === 's') {
       nh = Math.max(minH, dragStart.ch + dyi);
-      nw = Math.round(nh * TARGET);
-      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * TARGET); }
+      nw = Math.round(nh * targetRatio);
+      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * targetRatio); }
       nx = dragStart.cx + Math.round((dragStart.cw - nw) / 2);
     } else if (dragging === 'n') {
       nh = Math.max(minH, dragStart.ch - dyi);
-      nw = Math.round(nh * TARGET);
+      nw = Math.round(nh * targetRatio);
       ny = dragStart.cy + dragStart.ch - nh;
-      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * TARGET); }
+      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * targetRatio); }
       nx = dragStart.cx + Math.round((dragStart.cw - nw) / 2);
     }
 
@@ -439,16 +515,14 @@ WRAPPER.addEventListener('touchstart', e => {
   if (!currentImage || e.touches.length !== 1) return;
   e.preventDefault();
   const touch = e.touches[0];
-  const mouseEvent = new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY });
-  WRAPPER.dispatchEvent(mouseEvent);
+  WRAPPER.dispatchEvent(new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY }));
 }, { passive: false });
 
 window.addEventListener('touchmove', e => {
   if (!dragging) return;
   e.preventDefault();
   const touch = e.touches[0];
-  const mouseEvent = new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY });
-  window.dispatchEvent(mouseEvent);
+  window.dispatchEvent(new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY }));
 }, { passive: false });
 
 window.addEventListener('touchend', () => { dragging = null; });
@@ -465,7 +539,7 @@ function download() {
   c.toBlob(blob => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `cropped_16_9.${ext}`;
+    a.href = url; a.download = `cropped_${currentRatioW}_${currentRatioH}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   }, currentFormat, 0.95);
@@ -481,7 +555,6 @@ function toggleDark() {
     document.body.className = 'bg-surface text-white min-h-screen font-sans';
   } else {
     document.body.className = 'bg-white text-zinc-900 min-h-screen font-sans';
-    DROP.classList.remove('drag-over');
   }
 }
 </script>
