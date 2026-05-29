@@ -35,7 +35,8 @@ Open [`web/index.html`](web/index.html) in your browser for a visual drag-and-dr
 
 Features:
 - Drag & drop image upload
-- Real-time preview with crop overlay
-- Select crop position visually
+- Free-drag crop box locked to 16:9 — drag to move, corner handles to resize
+- Rule-of-thirds grid guides
+- Real-time preview
 - Download cropped result
-- Dark mode support
+- Dark mode / touch support

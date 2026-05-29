@@ -21,12 +21,49 @@ tailwind.config = {
 </script>
 <style>
   .drag-over { border-color: #60a5fa !important; background: rgba(96,165,250,0.06) !important; }
-  .crop-overlay { position: absolute; pointer-events: none; }
-  .crop-overlay::after {
-    content: ''; position: absolute; inset: 0;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
-    border: 2px solid rgba(255,255,255,0.9);
+
+  .img-wrapper {
+    position: relative; display: inline-block; line-height: 0; user-select: none;
   }
+  .img-wrapper img { display: block; max-height: 50vh; max-width: 100%; }
+
+  .crop-box {
+    position: absolute; cursor: move;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+    outline: 2px solid rgba(255,255,255,0.9);
+    outline-offset: -1px;
+    transition: none;
+  }
+  .crop-box::after {
+    content: ''; position: absolute; inset: 0;
+    outline: 1px dashed rgba(0,0,0,0.6);
+    outline-offset: -2px; pointer-events: none;
+  }
+
+  .handle {
+    position: absolute; width: 20px; height: 20px;
+    transform: translate(-50%, -50%); z-index: 10;
+    background: transparent; border-radius: 4px;
+  }
+  .handle.nw { top: 0; left: 0; cursor: nw-resize; }
+  .handle.ne { top: 0; left: 100%; cursor: ne-resize; }
+  .handle.sw { top: 100%; left: 0; cursor: sw-resize; }
+  .handle.se { top: 100%; left: 100%; cursor: se-resize; }
+  .handle.n  { top: 0; left: 50%; cursor: n-resize; }
+  .handle.s  { top: 100%; left: 50%; cursor: s-resize; }
+  .handle.w  { top: 50%; left: 0; cursor: w-resize; }
+  .handle.e  { top: 50%; left: 100%; cursor: e-resize; }
+
+  .handle-dot {
+    position: absolute; width: 8px; height: 8px;
+    background: white; border-radius: 50%;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .rule-line { position: absolute; pointer-events: none; }
+  .rule-v { width: 1px; background: rgba(255,255,255,0.12); top: 0; bottom: 0; left: 33.33%; }
+  .rule-h { height: 1px; background: rgba(255,255,255,0.12); left: 0; right: 0; }
 </style>
 </head>
 <body class="bg-surface text-white min-h-screen font-sans">
@@ -61,7 +98,7 @@ tailwind.config = {
       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
     </svg>
     <p class="text-zinc-400 text-sm">Drop an image here, or <span class="text-blue-400">click to browse</span></p>
-    <p class="text-zinc-600 text-xs mt-2">PNG, JPG, WebP — any size</p>
+    <p class="text-zinc-600 text-xs mt-2">PNG, JPG, WebP — drag the box to select crop area</p>
   </div>
 
   <!-- Main content -->
@@ -72,12 +109,28 @@ tailwind.config = {
       <!-- Original -->
       <div class="rounded-xl border border-border overflow-hidden bg-surface-2">
         <div class="px-4 py-2.5 border-b border-border flex items-center justify-between">
-          <span class="text-xs font-medium text-zinc-400">Original</span>
+          <span class="text-xs font-medium text-zinc-400">Original — drag to select</span>
           <span id="origSize" class="text-xs text-zinc-600"></span>
         </div>
-        <div id="origContainer" class="relative flex items-center justify-center bg-[#0a0a0a] p-4" style="min-height:300px">
-          <img id="origImg" class="max-h-[400px] max-w-full object-contain" alt="Original">
-          <div id="cropOverlay" class="crop-overlay hidden"></div>
+        <div id="origContainer" class="relative flex items-center justify-center bg-[#0a0a0a] p-6" style="min-height:300px">
+          <div class="img-wrapper" id="imgWrapper">
+            <img id="origImg" class="max-h-[50vh] max-w-full" alt="Original" draggable="false">
+            <div id="cropBox" class="crop-box hidden">
+              <div class="handle nw"><div class="handle-dot"></div></div>
+              <div class="handle ne"><div class="handle-dot"></div></div>
+              <div class="handle sw"><div class="handle-dot"></div></div>
+              <div class="handle se"><div class="handle-dot"></div></div>
+              <div class="handle n"><div class="handle-dot"></div></div>
+              <div class="handle s"><div class="handle-dot"></div></div>
+              <div class="handle w"><div class="handle-dot"></div></div>
+              <div class="handle e"><div class="handle-dot"></div></div>
+              <!-- Rule of thirds -->
+              <div class="rule-line rule-v" style="left:33.33%"></div>
+              <div class="rule-line rule-v" style="left:66.66%"></div>
+              <div class="rule-line rule-h" style="top:33.33%"></div>
+              <div class="rule-line rule-h" style="top:66.66%"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -95,17 +148,13 @@ tailwind.config = {
 
     <!-- Controls -->
     <div class="flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-1.5 bg-surface-2 rounded-lg p-1 border border-border">
-        <button onclick="setPosition('center')" data-pos="center"
-                class="px-4 py-2 text-sm rounded-md font-medium transition-all bg-surface-3 text-white">Center</button>
-        <button onclick="setPosition('top')" data-pos="top"
-                class="px-4 py-2 text-sm rounded-md font-medium transition-all text-zinc-400 hover:text-white hover:bg-surface-3">Top</button>
-        <button onclick="setPosition('bottom')" data-pos="bottom"
-                class="px-4 py-2 text-sm rounded-md font-medium transition-all text-zinc-400 hover:text-white hover:bg-surface-3">Bottom</button>
-        <button onclick="setPosition('left')" data-pos="left"
-                class="px-4 py-2 text-sm rounded-md font-medium transition-all text-zinc-400 hover:text-white hover:bg-surface-3">Left</button>
-        <button onclick="setPosition('right')" data-pos="right"
-                class="px-4 py-2 text-sm rounded-md font-medium transition-all text-zinc-400 hover:text-white hover:bg-surface-3">Right</button>
+      <div class="flex items-center gap-3 text-sm text-zinc-500">
+        <span class="inline-flex items-center gap-1">
+          <span class="w-3 h-3 rounded bg-white/10 inline-flex items-center justify-center text-[10px]">▣</span> drag to move
+        </span>
+        <span class="inline-flex items-center gap-1">
+          <span class="w-3 h-3 rounded-full bg-white border border-white/30"></span> drag corner to resize
+        </span>
       </div>
 
       <button onclick="download()"
@@ -121,18 +170,19 @@ tailwind.config = {
 </main>
 
 <script>
+const TARGET = 16 / 9;
 let currentImage = null;
 let currentFormat = 'image/jpeg';
-let position = 'center';
+let crop = { x: 0, y: 0, w: 0, h: 0 }; // in image pixels
 
 const DROP = document.getElementById('dropZone');
 const WS = document.getElementById('workspace');
-const ORIG_IMG = document.getElementById('origImg');
-const OVERLAY = document.getElementById('cropOverlay');
-const ORIG_CONTAINER = document.getElementById('origContainer');
+const IMG = document.getElementById('origImg');
+const WRAPPER = document.getElementById('imgWrapper');
+const CROP_BOX = document.getElementById('cropBox');
 const CANVAS = document.getElementById('previewCanvas');
 
-// Drag & drop
+// --- Drag & drop upload ---
 DROP.addEventListener('dragover', e => { e.preventDefault(); DROP.classList.add('drag-over'); });
 DROP.addEventListener('dragleave', () => DROP.classList.remove('drag-over'));
 DROP.addEventListener('drop', e => {
@@ -147,85 +197,269 @@ function handleFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
     const img = new Image();
-    img.onload = () => { currentImage = img; render(); };
+    img.onload = () => { currentImage = img; initCrop(); render(); };
     img.src = reader.result;
   };
   reader.readAsDataURL(file);
 }
 
-function setPosition(pos) {
-  position = pos;
-  document.querySelectorAll('[data-pos]').forEach(b => {
-    if (b.dataset.pos === pos) b.className = 'px-4 py-2 text-sm rounded-md font-medium transition-all bg-surface-3 text-white';
-    else b.className = 'px-4 py-2 text-sm rounded-md font-medium transition-all text-zinc-400 hover:text-white hover:bg-surface-3';
-  });
-  render();
+// --- Crop box ---
+function initCrop() {
+  const iw = currentImage.naturalWidth;
+  const ih = currentImage.naturalHeight;
+  const ratio = iw / ih;
+
+  if (ratio > TARGET) {
+    // image wider → crop width
+    crop.h = ih;
+    crop.w = Math.round(ih * TARGET);
+    crop.y = 0;
+    crop.x = Math.round((iw - crop.w) / 2);
+  } else {
+    // image taller → crop height
+    crop.w = iw;
+    crop.h = Math.round(iw / TARGET);
+    crop.x = 0;
+    crop.y = Math.round((ih - crop.h) / 2);
+  }
 }
 
-function getCropRect(imgW, imgH) {
-  const target = 16 / 9;
-  const current = imgW / imgH;
-  let x, y, w, h;
-
-  if (current > target) {
-    h = imgH; w = h * target;
-    if (position === 'left') x = 0;
-    else if (position === 'right') x = imgW - w;
-    else x = (imgW - w) / 2;
-    y = 0;
-  } else {
-    w = imgW; h = w / target;
-    if (position === 'top') y = 0;
-    else if (position === 'bottom') y = imgH - h;
-    else y = (imgH - h) / 2;
-    x = 0;
-  }
-  return { x, y, w, h };
+function clampCrop() {
+  const iw = currentImage.naturalWidth;
+  const ih = currentImage.naturalHeight;
+  crop.x = Math.max(0, Math.min(crop.x, iw - crop.w));
+  crop.y = Math.max(0, Math.min(crop.y, ih - crop.h));
 }
 
 function render() {
   if (!currentImage) return;
-  const imgW = currentImage.naturalWidth;
-  const imgH = currentImage.naturalHeight;
+  const iw = currentImage.naturalWidth;
+  const ih = currentImage.naturalHeight;
 
   DROP.classList.add('hidden');
   WS.classList.remove('hidden');
+  IMG.src = currentImage.src;
+  document.getElementById('origSize').textContent = `${iw} × ${ih}`;
 
-  ORIG_IMG.src = currentImage.src;
-  document.getElementById('origSize').textContent = `${imgW} × ${imgH}`;
+  IMG.onload = () => {
+    positionBox();
+    updatePreview();
+  };
 
-  // Update overlay on original image
-  ORIG_IMG.onload = () => {
-    const displayW = ORIG_IMG.offsetWidth;
-    const displayH = ORIG_IMG.offsetHeight;
-    const scaleX = displayW / imgW;
-    const scaleY = displayH / imgH;
+  // If image already loaded (from cache), fire immediately
+  if (IMG.complete && IMG.naturalWidth > 0) {
+    positionBox();
+    updatePreview();
+  }
+}
 
-    const rect = getCropRect(imgW, imgH);
-    OVERLAY.style.left = rect.x * scaleX + 'px';
-    OVERLAY.style.top = rect.y * scaleY + 'px';
-    OVERLAY.style.width = rect.w * scaleX + 'px';
-    OVERLAY.style.height = rect.h * scaleY + 'px';
-    OVERLAY.classList.remove('hidden');
+function positionBox() {
+  if (!CROP_BOX) return;
+  const dispW = IMG.offsetWidth;
+  const dispH = IMG.offsetHeight;
+  const iw = currentImage.naturalWidth;
+  const ih = currentImage.naturalHeight;
+  const sx = dispW / iw;
+  const sy = dispH / ih;
 
-    // Canvas preview
-    const previewW = Math.min(rect.w, 640);
-    const ratio = previewW / rect.w;
-    CANVAS.width = previewW;
-    CANVAS.height = rect.h * ratio;
-    const ctx = CANVAS.getContext('2d');
-    ctx.drawImage(currentImage, rect.x, rect.y, rect.w, rect.h, 0, 0, CANVAS.width, CANVAS.height);
-    document.getElementById('previewSize').textContent = `${CANVAS.width} × ${CANVAS.height}`;
+  CROP_BOX.style.left   = (crop.x * sx) + 'px';
+  CROP_BOX.style.top    = (crop.y * sy) + 'px';
+  CROP_BOX.style.width  = (crop.w * sx) + 'px';
+  CROP_BOX.style.height = (crop.h * sy) + 'px';
+  CROP_BOX.classList.remove('hidden');
+}
+
+function updatePreview() {
+  const previewW = Math.min(crop.w, 640);
+  const ratio = previewW / crop.w;
+  CANVAS.width = previewW;
+  CANVAS.height = Math.round(crop.h * ratio);
+  const ctx = CANVAS.getContext('2d');
+  ctx.drawImage(currentImage, crop.x, crop.y, crop.w, crop.h, 0, 0, CANVAS.width, CANVAS.height);
+  document.getElementById('previewSize').textContent = `${crop.w} × ${crop.h}`;
+}
+
+// --- Mouse interaction ---
+let dragging = null; // 'move' | 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'w' | 'e'
+let dragStart = { mx: 0, my: 0, cx: 0, cy: 0, cw: 0, ch: 0 };
+
+function imgScale() {
+  return {
+    sx: IMG.offsetWidth / currentImage.naturalWidth,
+    sy: IMG.offsetHeight / currentImage.naturalHeight,
   };
 }
 
+function mouseToImage(mx, my) {
+  const rect = IMG.getBoundingClientRect();
+  const { sx, sy } = imgScale();
+  return {
+    ix: (mx - rect.left) / sx,
+    iy: (my - rect.top) / sy,
+  };
+}
+
+WRAPPER.addEventListener('mousedown', e => {
+  if (!currentImage) return;
+  e.preventDefault();
+
+  const rect = IMG.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  // Check if clicking on a handle
+  const handle = e.target.closest('.handle');
+  if (handle && CROP_BOX.style.display !== 'none') {
+    const cls = Array.from(handle.classList).find(c => ['nw','ne','sw','se','n','s','w','e'].includes(c));
+    if (cls) {
+      dragging = cls;
+      dragStart = { mx, my, cx: crop.x, cy: crop.y, cw: crop.w, ch: crop.h };
+      return;
+    }
+  }
+
+  // Check if clicking inside the crop box → move
+  const { sx, sy } = imgScale();
+  const bx = crop.x * sx, by = crop.y * sy, bw = crop.w * sx, bh = crop.h * sy;
+  if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
+    dragging = 'move';
+    dragStart = { mx, my, cx: crop.x, cy: crop.y, cw: crop.w, ch: crop.h };
+    return;
+  }
+
+  // Click outside → start new selection
+  const { ix, iy } = mouseToImage(e.clientX, e.clientY);
+  const iw = currentImage.naturalWidth;
+  const ih = currentImage.naturalHeight;
+  const ratio = iw / ih;
+
+  let nw, nh;
+  if (ratio > TARGET) {
+    nh = ih; nw = Math.round(nh * TARGET);
+  } else {
+    nw = iw; nh = Math.round(nw / TARGET);
+  }
+  crop.w = Math.min(nw, iw);
+  crop.h = Math.min(nh, ih);
+  crop.x = Math.round(Math.max(0, Math.min(ix - crop.w / 2, iw - crop.w)));
+  crop.y = Math.round(Math.max(0, Math.min(iy - crop.h / 2, ih - crop.h)));
+  clampCrop();
+  positionBox();
+  updatePreview();
+});
+
+window.addEventListener('mousemove', e => {
+  if (!dragging || !currentImage) return;
+
+  const rect = IMG.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const dx = (mx - dragStart.mx);
+  const dy = (my - dragStart.my);
+  const { sx, sy } = imgScale();
+  const dxi = dx / sx;
+  const dyi = dy / sy;
+  const iw = currentImage.naturalWidth;
+  const ih = currentImage.naturalHeight;
+
+  if (dragging === 'move') {
+    crop.x = Math.round(dragStart.cx + dxi);
+    crop.y = Math.round(dragStart.cy + dyi);
+    clampCrop();
+  } else {
+    // Resize — keep opposite corner fixed, maintain 16:9
+    const minW = 80, minH = 45;
+
+    let nx = dragStart.cx, ny = dragStart.cy, nw = dragStart.cw, nh = dragStart.ch;
+
+    if (dragging === 'se') {
+      nw = Math.max(minW, dragStart.cw + dxi);
+      nh = Math.round(nw / TARGET);
+      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * TARGET); }
+      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / TARGET); }
+    } else if (dragging === 'sw') {
+      nw = Math.max(minW, dragStart.cw - dxi);
+      nh = Math.round(nw / TARGET);
+      nx = dragStart.cx + dragStart.cw - nw;
+      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * TARGET); nx = dragStart.cx + dragStart.cw - nw; }
+      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / TARGET); }
+    } else if (dragging === 'ne') {
+      nh = Math.max(minH, dragStart.ch - dyi);
+      nw = Math.round(nh * TARGET);
+      ny = dragStart.cy + dragStart.ch - nh;
+      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / TARGET); ny = dragStart.cy + dragStart.ch - nh; }
+      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * TARGET); }
+    } else if (dragging === 'nw') {
+      nw = Math.max(minW, dragStart.cw - dxi);
+      nh = Math.round(nw / TARGET);
+      nx = dragStart.cx + dragStart.cw - nw;
+      ny = dragStart.cy + dragStart.ch - nh;
+      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / TARGET); }
+      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * TARGET); }
+    } else if (dragging === 'e') {
+      nw = Math.max(minW, dragStart.cw + dxi);
+      nh = Math.round(nw / TARGET);
+      if (nx + nw > iw) { nw = iw - nx; nh = Math.round(nw / TARGET); }
+      // recenter vertically
+      ny = dragStart.cy + Math.round((dragStart.ch - nh) / 2);
+    } else if (dragging === 'w') {
+      nw = Math.max(minW, dragStart.cw - dxi);
+      nh = Math.round(nw / TARGET);
+      nx = dragStart.cx + dragStart.cw - nw;
+      if (nx < 0) { nx = 0; nw = dragStart.cx + dragStart.cw; nh = Math.round(nw / TARGET); }
+      ny = dragStart.cy + Math.round((dragStart.ch - nh) / 2);
+    } else if (dragging === 's') {
+      nh = Math.max(minH, dragStart.ch + dyi);
+      nw = Math.round(nh * TARGET);
+      if (ny + nh > ih) { nh = ih - ny; nw = Math.round(nh * TARGET); }
+      nx = dragStart.cx + Math.round((dragStart.cw - nw) / 2);
+    } else if (dragging === 'n') {
+      nh = Math.max(minH, dragStart.ch - dyi);
+      nw = Math.round(nh * TARGET);
+      ny = dragStart.cy + dragStart.ch - nh;
+      if (ny < 0) { ny = 0; nh = dragStart.cy + dragStart.ch; nw = Math.round(nh * TARGET); }
+      nx = dragStart.cx + Math.round((dragStart.cw - nw) / 2);
+    }
+
+    crop.x = Math.round(nx);
+    crop.y = Math.round(ny);
+    crop.w = Math.round(nw);
+    crop.h = Math.round(nh);
+    clampCrop();
+  }
+
+  positionBox();
+  updatePreview();
+});
+
+window.addEventListener('mouseup', () => { dragging = null; });
+
+// Touch support
+WRAPPER.addEventListener('touchstart', e => {
+  if (!currentImage || e.touches.length !== 1) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const mouseEvent = new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY });
+  WRAPPER.dispatchEvent(mouseEvent);
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const mouseEvent = new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY });
+  window.dispatchEvent(mouseEvent);
+}, { passive: false });
+
+window.addEventListener('touchend', () => { dragging = null; });
+
+// --- Download ---
 function download() {
   if (!currentImage) return;
-  const rect = getCropRect(currentImage.naturalWidth, currentImage.naturalHeight);
   const c = document.createElement('canvas');
-  c.width = rect.w;
-  c.height = rect.h;
-  c.getContext('2d').drawImage(currentImage, rect.x, rect.y, rect.w, rect.h, 0, 0, c.width, c.height);
+  c.width = crop.w;
+  c.height = crop.h;
+  c.getContext('2d').drawImage(currentImage, crop.x, crop.y, crop.w, crop.h, 0, 0, c.width, c.height);
 
   const ext = currentFormat === 'image/png' ? 'png' : currentFormat === 'image/webp' ? 'webp' : 'jpg';
   c.toBlob(blob => {
@@ -237,6 +471,7 @@ function download() {
   }, currentFormat, 0.95);
 }
 
+// --- Dark mode ---
 function toggleDark() {
   const html = document.documentElement;
   html.classList.toggle('dark');
@@ -248,14 +483,6 @@ function toggleDark() {
     document.body.className = 'bg-white text-zinc-900 min-h-screen font-sans';
     DROP.classList.remove('drag-over');
   }
-  // Rebuild drag-over color for light mode
-  DROP.addEventListener('dragover', function lightFix(e) {
-    e.preventDefault();
-    if (!document.documentElement.classList.contains('dark')) {
-      DROP.style.borderColor = '#2563eb';
-      DROP.style.background = 'rgba(37,99,235,0.04)';
-    }
-  });
 }
 </script>
 </body>
