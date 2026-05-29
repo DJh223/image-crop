@@ -1,4 +1,4 @@
-# crop-16-9
+# image-crop
 
 Crop images to 16:9 aspect ratio from the command line.
 
