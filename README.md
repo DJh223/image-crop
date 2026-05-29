@@ -28,3 +28,14 @@ python crop_16_9.py photo.jpg -q 85
 ```
 
 The script crops from the center by default. For images wider than 16:9, it trims the sides. For images taller than 16:9, it trims the top and bottom.
+
+## Web UI
+
+Open [`web/index.html`](web/index.html) in your browser for a visual drag-and-drop interface.
+
+Features:
+- Drag & drop image upload
+- Real-time preview with crop overlay
+- Select crop position visually
+- Download cropped result
+- Dark mode support
