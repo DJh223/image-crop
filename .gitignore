@@ -3,3 +3,10 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.claude/
+CLAUDE.md
+exam-system/
+summertry/
+skills/
+.agents/
+skills-lock.json
